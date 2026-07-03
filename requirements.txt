@@ -1,0 +1,21 @@
+# --- Backend: API server ---
+fastapi                 # Web framework for the backend API
+uvicorn[standard]       # Server that runs the FastAPI app
+python-dotenv           # Loads API keys from the .env file
+pydantic                # Data validation for API requests/responses
+
+# --- AI services ---
+google-genai            # Google's SDK for Gemini embeddings
+groq                    # Groq's SDK for fast LLM answers
+
+# --- Vector database ---
+qdrant-client           # Client for Qdrant Cloud vector search
+
+# --- Document parsing ---
+pypdf                   # PDF text extraction
+python-docx             # Word document parsing
+beautifulsoup4          # HTML text extraction
+
+# --- Frontend ---
+streamlit               # Chat UI
+requests                # Lets the UI call the backend over HTTP
