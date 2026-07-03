@@ -10,3 +10,4 @@ venv/
 # OS cruft
 .DS_Store
 .streamlit/secrets.toml
+docs/STUDY_GUIDE.pdf
