@@ -51,6 +51,14 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Cannot reach Qdrant: {e}")
 
+    include_noisy = st.toggle(
+        "Include noise documents",
+        value=False,
+        help="The index deliberately contains off-topic 'noise' documents "
+        "(85% of all chunks) to demonstrate retrieval precision. Off = search "
+        "only the curated Kubernetes docs.",
+    )
+
     if st.button("Clear conversation"):
         st.session_state.messages = []
         st.rerun()
@@ -98,7 +106,10 @@ if question:
                     chunks = []
                     reply = answer_conversational(question, history)
                 else:
-                    chunks = search(embed_query(decision["search_query"]))
+                    chunks = search(
+                        embed_query(decision["search_query"]),
+                        include_noisy=include_noisy,
+                    )
                     reply = answer(question, chunks, history)
             except Exception as e:
                 st.error(f"Something went wrong: {e}")

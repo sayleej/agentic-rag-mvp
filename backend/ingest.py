@@ -24,7 +24,9 @@ def main() -> None:
         print(f"Missing settings in .env: {', '.join(missing)}")
         sys.exit(1)
 
-    files = sorted(p for p in config.DATA_DIR.iterdir() if p.is_file())
+    # Sub-folder name = source label: data/true/ is curated, data/noisy/
+    # is deliberate noise. Files directly in data/ count as curated.
+    files = sorted(p for p in config.DATA_DIR.rglob("*") if p.is_file())
     if not files:
         print(f"No files found in {config.DATA_DIR}. Drop some documents there first.")
         sys.exit(1)
@@ -34,6 +36,7 @@ def main() -> None:
 
     total_chunks = 0
     for path in files:
+        source_type = "noisy" if path.parent.name == "noisy" else "true"
         text = load_file(path)
         if text is None:
             print(f"  SKIP {path.name} (unsupported file type)")
@@ -43,9 +46,9 @@ def main() -> None:
             continue
 
         chunks = chunk_text(text)
-        print(f"  {path.name}: {len(text)} chars -> {len(chunks)} chunks, embedding...")
+        print(f"  [{source_type}] {path.name}: {len(text)} chars -> {len(chunks)} chunks, embedding...")
         vectors = embed_documents(chunks)
-        add_chunks(chunks, vectors, source=path.name)
+        add_chunks(chunks, vectors, source=path.name, source_type=source_type)
         total_chunks += len(chunks)
 
     print(f"\nDone. {total_chunks} chunks indexed; Qdrant now holds {count_chunks()}.")

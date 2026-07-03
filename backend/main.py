@@ -26,6 +26,7 @@ class ChatMessage(BaseModel):
 class QueryRequest(BaseModel):
     question: str
     history: list[ChatMessage] = []
+    include_noisy: bool = False  # search the noise documents too
 
 
 @app.get("/health")
@@ -57,7 +58,7 @@ def query(request: QueryRequest):
         }
 
     query_vector = embed_query(decision["search_query"])
-    chunks = search(query_vector)
+    chunks = search(query_vector, include_noisy=request.include_noisy)
     reply = answer(request.question, chunks, history)
     return {
         "answer": reply,

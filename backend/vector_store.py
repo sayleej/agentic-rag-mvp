@@ -41,15 +41,28 @@ def reset_collection() -> None:
             distance=models.Distance.COSINE,
         ),
     )
+    # Qdrant requires indexes on fields used in search filters.
+    for field in ("source", "source_type"):
+        client.create_payload_index(
+            collection_name=QDRANT_COLLECTION,
+            field_name=field,
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
 
 
-def add_chunks(chunks: list[str], vectors: list[list[float]], source: str) -> None:
-    """Store chunks with their vectors; `source` records which file each came from."""
+def add_chunks(
+    chunks: list[str],
+    vectors: list[list[float]],
+    source: str,
+    source_type: str = "true",
+) -> None:
+    """Store chunks with their vectors; `source` records which file each came
+    from and `source_type` labels it as curated ("true") or noise ("noisy")."""
     points = [
         models.PointStruct(
             id=str(uuid.uuid4()),
             vector=vector,
-            payload={"text": chunk, "source": source},
+            payload={"text": chunk, "source": source, "source_type": source_type},
         )
         for chunk, vector in zip(chunks, vectors)
     ]
@@ -61,12 +74,31 @@ def add_chunks(chunks: list[str], vectors: list[list[float]], source: str) -> No
         )
 
 
-def search(query_vector: list[float], limit: int = TOP_K) -> list[dict]:
-    """Return the chunks whose vectors are closest to the query vector."""
+def search(
+    query_vector: list[float],
+    limit: int = TOP_K,
+    include_noisy: bool = False,
+) -> list[dict]:
+    """Return the chunks whose vectors are closest to the query vector.
+
+    By default only curated ("true") documents are searched; pass
+    include_noisy=True to search the whole library.
+    """
+    query_filter = None
+    if not include_noisy:
+        query_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="source_type",
+                    match=models.MatchValue(value="true"),
+                )
+            ]
+        )
     response = _get_client().query_points(
         collection_name=QDRANT_COLLECTION,
         query=query_vector,
         limit=limit,
+        query_filter=query_filter,
         with_payload=True,
     )
     return [

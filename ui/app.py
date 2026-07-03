@@ -34,6 +34,14 @@ with st.sidebar:
     except Exception:
         st.error("Backend offline. Start it with:\n\n`uvicorn backend.main:app --port 8000`")
 
+    include_noisy = st.toggle(
+        "Include noise documents",
+        value=False,
+        help="The index deliberately contains off-topic 'noise' documents "
+        "(85% of all chunks) to demonstrate retrieval precision. Off = search "
+        "only the curated Kubernetes docs.",
+    )
+
     if st.button("Clear conversation"):
         st.session_state.messages = []
         st.rerun()
@@ -84,7 +92,11 @@ if question:
                 ]
                 response = requests.post(
                     f"{BACKEND_URL}/query",
-                    json={"question": question, "history": history},
+                    json={
+                        "question": question,
+                        "history": history,
+                        "include_noisy": include_noisy,
+                    },
                     timeout=120,
                 )
                 response.raise_for_status()

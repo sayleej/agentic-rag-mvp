@@ -29,7 +29,9 @@ The document library covers Kubernetes operations: jobs, cron jobs, job
 monitoring, parallel work queues, and pod autoscaling.
 
 Classify the user's latest message:
-- "technical": a question that should be answered from the document library.
+- "technical": ANY information-seeking question — even if it seems outside
+  the library's topics. The search step decides what is answerable; your job
+  is only to distinguish questions from chit-chat.
 - "conversational": greetings, thanks, chit-chat, or questions about the
   conversation itself ("what did I just ask?").
 
