@@ -11,7 +11,8 @@ from pydantic import BaseModel
 
 from backend import config
 from backend.embeddings import embed_query
-from backend.responder import answer
+from backend.planner import plan
+from backend.responder import answer, answer_conversational
 from backend.vector_store import count_chunks, search
 
 app = FastAPI(title="Agentic RAG MVP")
@@ -42,10 +43,21 @@ def health():
 
 @app.post("/query")
 def query(request: QueryRequest):
-    """One chat turn: embed the question, search Qdrant, ask Groq."""
-    query_vector = embed_query(request.question)
-    chunks = search(query_vector)
+    """One chat turn: plan, then either search + grounded answer, or chat."""
     history = [m.model_dump() for m in request.history]
+
+    decision = plan(request.question, history)
+
+    if decision["intent"] == "conversational":
+        reply = answer_conversational(request.question, history)
+        return {
+            "answer": reply,
+            "sources": [],
+            "plan": {"intent": "conversational", "search_query": None},
+        }
+
+    query_vector = embed_query(decision["search_query"])
+    chunks = search(query_vector)
     reply = answer(request.question, chunks, history)
     return {
         "answer": reply,
@@ -53,4 +65,5 @@ def query(request: QueryRequest):
             {"source": c["source"], "score": c["score"], "text": c["text"]}
             for c in chunks
         ],
+        "plan": {"intent": "technical", "search_query": decision["search_query"]},
     }

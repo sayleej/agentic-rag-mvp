@@ -21,6 +21,13 @@ def _get_client() -> Groq:
     return _client
 
 
+CONVERSATIONAL_PROMPT = """You are a friendly assistant for a Kubernetes documentation Q&A product.
+The user's message is small talk or about the conversation itself — no document
+search was needed. Reply naturally and briefly, using the conversation history
+for context. If asked what you can do, say you answer questions about the
+Kubernetes operations document library (jobs, cron jobs, monitoring, work
+queues, pod autoscaling)."""
+
 SYSTEM_PROMPT = """You are a helpful assistant that answers questions about a document library.
 
 Rules:
@@ -60,5 +67,18 @@ def answer(question: str, chunks: list[dict], history: list[dict]) -> str:
         model=GROQ_MODEL,
         messages=build_prompt(question, chunks, history),
         temperature=0.1,  # low = factual and consistent, not creative
+    )
+    return response.choices[0].message.content
+
+
+def answer_conversational(question: str, history: list[dict]) -> str:
+    """Reply to small talk — no documents involved."""
+    messages = [{"role": "system", "content": CONVERSATIONAL_PROMPT}]
+    messages.extend(history[-6:])
+    messages.append({"role": "user", "content": question})
+    response = _get_client().chat.completions.create(
+        model=GROQ_MODEL,
+        messages=messages,
+        temperature=0.5,  # a bit warmer — this is conversation, not citation
     )
     return response.choices[0].message.content

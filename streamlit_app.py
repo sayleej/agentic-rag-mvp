@@ -21,7 +21,8 @@ for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
 
 from backend import config
 from backend.embeddings import embed_query
-from backend.responder import answer
+from backend.planner import plan
+from backend.responder import answer, answer_conversational
 from backend.vector_store import count_chunks, search
 
 st.set_page_config(page_title="Docs Assistant", page_icon="📚")
@@ -86,20 +87,30 @@ if question:
         st.markdown(question)
 
     with st.chat_message("assistant"):
-        with st.spinner("Searching documents and writing an answer..."):
+        with st.spinner("Thinking..."):
             try:
-                chunks = search(embed_query(question))
                 history = [
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state.messages[:-1]
                 ]
-                reply = answer(question, chunks, history)
+                decision = plan(question, history)
+                if decision["intent"] == "conversational":
+                    chunks = []
+                    reply = answer_conversational(question, history)
+                else:
+                    chunks = search(embed_query(decision["search_query"]))
+                    reply = answer(question, chunks, history)
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
                 st.stop()
 
+        if decision["intent"] == "technical":
+            st.caption(f"🔎 Searched the library for: *{decision['search_query']}*")
+        else:
+            st.caption("💬 Conversational — no document search needed")
         st.markdown(reply)
-        render_sources(chunks)
+        if chunks:
+            render_sources(chunks)
 
     st.session_state.messages.append(
         {"role": "assistant", "content": reply, "sources": chunks}

@@ -93,11 +93,17 @@ if question:
                 st.error(f"Could not reach the backend: {e}")
                 st.stop()
 
+        plan_info = data.get("plan", {})
+        if plan_info.get("intent") == "technical":
+            st.caption(f"🔎 Searched the library for: *{plan_info['search_query']}*")
+        elif plan_info.get("intent") == "conversational":
+            st.caption("💬 Conversational — no document search needed")
         st.markdown(data["answer"])
-        with st.expander("📄 Sources"):
-            for s in data["sources"]:
-                st.markdown(f"**{s['source']}** (relevance {s['score']:.2f})")
-                st.caption(s["text"][:300] + ("..." if len(s["text"]) > 300 else ""))
+        if data["sources"]:
+            with st.expander("📄 Sources"):
+                for s in data["sources"]:
+                    st.markdown(f"**{s['source']}** (relevance {s['score']:.2f})")
+                    st.caption(s["text"][:300] + ("..." if len(s["text"]) > 300 else ""))
 
     st.session_state.messages.append(
         {"role": "assistant", "content": data["answer"], "sources": data["sources"]}
