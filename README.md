@@ -7,6 +7,10 @@ your documents — grounded, cited, and honest when it doesn't know.
 search → Groq answer generation → Streamlit chat UI.
 (Planned later phases: query planner, reranking, guardrails, LLM gateway, evals.)
 
+📖 **New to RAG?** Read the [deep understanding guide](docs/UNDERSTANDING.md) —
+a plain-English walkthrough of every component, the product decisions behind
+them, and the real incidents hit during the build.
+
 ## Architecture
 
 ```
