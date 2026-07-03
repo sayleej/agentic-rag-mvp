@@ -1,0 +1,201 @@
+{
+  "timestamp": "2026-07-04T04:53:30",
+  "retrieval_hit_rate": 1.0,
+  "avg_answer_quality": 4.89,
+  "refusal_accuracy": 1.0,
+  "overall_pass_rate": 1.0,
+  "items": [
+    {
+      "id": "job-restart-policy",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "Kubernetes\u202fJobs can only use the **`OnFailure`** or **`Never`** restart policies. The `Always` policy is not permitted because it would prevent the Pod from ever completing. \u3010Source: cronjobs.docx\u3011",
+      "sources": [
+        "cronjobs.docx",
+        "monitor_job.docx",
+        "cronjobs.docx",
+        "monitor_job.docx",
+        "cronjobs.docx"
+      ]
+    },
+    {
+      "id": "job-vs-deployment",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "A Kubernetes **Job** is meant for **finite, one\u2011time or batch workloads** that run until they finish and then exit. The Job controller creates Pods, watches them, and makes sure they complete successfully (e.g., by restarting failed Pods according to the allowed restart policies). In contrast, a **Deployment** manages **long\u2011running services**: it continuously ensures that the desired number of Pods are running, restarts them if they fail, and keeps them alive indefinitely.  \n\n*Source: \u201cUnderstanding Kubernetes Jobs\u201d in **cronjobs.docx** \u2013 it notes that a Job runs finite workloads to completion, whereas Pods created via Deployments run indefinitely.*",
+      "sources": [
+        "cronjobs.docx",
+        "monitor_job.docx",
+        "monitor_job.docx",
+        "cronjobs.docx",
+        "parallel_work_queue.txt"
+      ]
+    },
+    {
+      "id": "cronjob-purpose",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "A **CronJob** in Kubernetes is used to run **Jobs on a schedule**\u2014it lets you define recurring, time\u2011based tasks (e.g., \u201crun every minute\u201d or \u201crun daily at 2\u202fAM\u201d). The CronJob resource is essentially a thin wrapper around a Job that automatically creates Job objects according to the cron\u2011style schedule you specify\u3010Source: monitor_job.docx\u3011. This makes it ideal for scheduling recurring batch processes, maintenance tasks, backups, or any other periodic workload in a Kubernetes cluster\u3010Source: cronjobs.docx\u3011.",
+      "sources": [
+        "monitor_job.docx",
+        "cronjobs.docx",
+        "monitor_job.docx",
+        "monitor_job.docx",
+        "cronjobs.docx"
+      ]
+    },
+    {
+      "id": "databricks-tools",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "You can automate job creation and management in Databricks with any of the following developer tools:\n\n| Tool | What it does |\n|------|--------------|\n| **Databricks CLI** \u2013 a command\u2011line interface that wraps the REST API and is useful for one\u2011off tasks, shell scripting, or directly invoking the API. *(job_management.html)* |\n| **Databricks SDKs** \u2013 language\u2011specific libraries (Python, Java, Go, R) that let you write code to create and manage jobs without dealing with raw HTTP calls. *(job_management.html)* |\n| **Databricks REST API** \u2013 the underlying HTTP API you can call directly (e.g., with `curl` or Postman) for any language or environment. *(job_management.html)* |\n\nFor CI/CD pipelines you can also use **Databricks Asset Bundles** or the **Databricks Terraform provider**, which build on these tools to manage jobs as code. *(job_management.html)*",
+      "sources": [
+        "job_management.html",
+        "job_management.html",
+        "job_management.html",
+        "job_management.html",
+        "job_management.html"
+      ]
+    },
+    {
+      "id": "job-status-check",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 4,
+      "refused": false,
+      "answer": "To check a job\u2019s **status** and then view its **logs**, follow these steps (all commands are shown in *monitor_job.docx*):\n\n1. **Check the job\u2019s status**  \n   ```bash\n   kubectl get jobs <job\u2011name>\n   ```  \n   This shows the completions (e.g.,\u202f0/1 while it\u2019s running, 1/1 when finished) and other status fields\u3010Source: monitor_job.docx\u3011.\n\n2. **Find the pod created by the job**  \n   Jobs create pods whose names include the job name. You can locate the pod with a label selector:  \n   ```bash\n   kubectl get pods -l job-name=<job\u2011name>\n   ```  \n   (You can also list all pods with labels using `kubectl get pods --show-labels`.)\u3010Source: monitor_job.docx\u3011\n\n3. **View the pod\u2019s logs**  \n   Once you have the pod name (e.g., `hello-job-abcd1`), run:  \n   ```bash\n   kubectl logs <pod\u2011name>\n   ```  \n   Example:  \n   ```bash\n   kubectl logs hello-job-abcd1\n   ```  \n   The command prints the output the job produced (e.g., \u201cHello, Kubernetes!\u201d). Logs are available even after the job has completed, which is useful for debugging\u3010Source: monitor_job.docx\u3011.\n\n**Summary**:  \n- `kubectl get jobs <job>` \u2192 status.  \n- `kubectl get pods -l job-name=<job>` \u2192 pod name.  \n- `kubectl logs <pod>` \u2192 logs (available during and after execution).",
+      "sources": [
+        "monitor_job.docx",
+        "monitor_job.docx",
+        "monitor_job.docx",
+        "monitor_job.docx",
+        "monitor_job.docx"
+      ]
+    },
+    {
+      "id": "work-queue-storage",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "The example uses **Redis** as the storage service for the work queue\u3010parallel_work_queue.txt\u3011.",
+      "sources": [
+        "parallel_work_queue.txt",
+        "cronjobs.docx",
+        "parallel_work_queue.txt",
+        "parallel_work_queue.txt",
+        "cronjobs.docx"
+      ]
+    },
+    {
+      "id": "work-queue-pattern",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "The pattern works by using a Redis\u2011backed work queue and a Kubernetes\u202fJob that runs several worker Pods in parallel.\n\n1. **Start Redis** \u2013 a single Redis instance holds the queue (Step\u202f1).  \n2. **Fill the queue** \u2013 tasks are pushed onto a Redis list (e.g., `rpush job2 \"apple\"` \u2026) from a temporary pod (Step\u202f2).  \n3. **Launch a Job** \u2013 the Job manifest sets `parallelism` (e.g.,\u202f2) so multiple Pods are created (Step\u202f4).  \n4. **Worker loop** \u2013 each Pod runs a Python script that:\n   * connects to Redis (`q = rediswq.RedisWQ(name=\"job2\", host=host)`),\n   * checks `q.empty()`,\n   * repeatedly calls `q.lease()` to lease a task,\n   * processes the task (the example sleeps 10\u202fs in place of real work),\n   * calls `q.complete(item)` to mark it done,\n   * and repeats until the queue is empty, then exits (`while not q.empty(): \u2026`).\n\nThus, every worker Pod repeatedly pulls a unit of work from the shared Redis queue, processes it, acknowledges completion, and continues until the queue is empty, achieving parallel processing of the tasks.  \n*(All details from **parallel_work_queue.txt**.)*",
+      "sources": [
+        "parallel_work_queue.txt",
+        "cronjobs.docx",
+        "cronjobs.docx",
+        "parallel_work_queue.txt",
+        "parallel_work_queue.txt"
+      ]
+    },
+    {
+      "id": "hpa-vs-vpa",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "**Horizontal Pod Autoscaling (HPA)**  \n- Scales **the number of pods** in a Deployment, ReplicaSet, or ReplicationController up or down based on observed metrics such as CPU, memory, or custom metrics.\u202f\u3010pods_autoscale.html\u3011  \n- Used mainly for **stateless applications** that can handle more load by adding more identical pods.\u202f\u3010pods_autoscale.html\u3011\n\n**Vertical Pod Autoscaling (VPA)**  \n- Adjusts the **resource requests/limits (CPU, memory) of each individual pod** rather than changing the pod count.\u202f\u3010pods_autoscale.html\u3011  \n- Suited for **stateful applications or workloads where horizontal scaling isn\u2019t feasible** and you need to optimize resources per pod.\u202f\u3010pods_autoscale.html\u3011\n\n**Key difference:** HPA changes *how many* pods run; VPA changes *how much* resources each pod gets.",
+      "sources": [
+        "pods_autoscale.html",
+        "pods_autoscale.html",
+        "pods_autoscale.html",
+        "pods_autoscale.html",
+        "pods_autoscale.html"
+      ]
+    },
+    {
+      "id": "metrics-server",
+      "type": "answerable",
+      "passed": true,
+      "retrieval_hit": true,
+      "quality_score": 5,
+      "refused": false,
+      "answer": "Before you can test either the Horizontal Pod Autoscaler (HPA) or the Vertical Pod Autoscaler (VPA), the cluster must have the **Metrics Server** installed, as it provides the resource\u2011usage metrics those autoscalers rely on\u3010pods_autoscale.html\u3011.",
+      "sources": [
+        "pods_autoscale.html",
+        "pods_autoscale.html",
+        "pods_autoscale.html",
+        "pods_autoscale.html",
+        "pods_autoscale.html"
+      ]
+    },
+    {
+      "id": "oos-refund",
+      "type": "out_of_scope",
+      "passed": true,
+      "retrieval_hit": null,
+      "quality_score": 5,
+      "refused": true,
+      "answer": "I\u2019m sorry, but the provided documents do not contain any information about a company refund policy. You might try asking for details that are covered in the context, such as the configuration of backup jobs, compliance reporting, or event\u2011driven processing with KEDA.",
+      "sources": [
+        "cronjobs.docx",
+        "cronjobs.docx",
+        "cronjobs.docx",
+        "cronjobs.docx",
+        "cronjobs.docx"
+      ]
+    },
+    {
+      "id": "oos-malloc",
+      "type": "out_of_scope",
+      "passed": true,
+      "retrieval_hit": null,
+      "quality_score": 5,
+      "refused": true,
+      "answer": "I\u2019m sorry, but the provided documents don\u2019t contain any information about writing a memory allocator in C. They focus on Kubernetes CronJobs, job configurations, and related best practices.\n\nIf you have questions about those topics\u2014such as how to configure resource limits for a CronJob, how to set up a parallel work queue, or how to define back\u2011off policies\u2014I can help with that. Otherwise, you might need to consult a programming\u2011specific resource for guidance on implementing a memory allocator in C.",
+      "sources": [
+        "cronjobs.docx",
+        "parallel_work_queue.txt",
+        "cronjobs.docx",
+        "cronjobs.docx",
+        "cronjobs.docx"
+      ]
+    },
+    {
+      "id": "oos-worldcup",
+      "type": "out_of_scope",
+      "passed": true,
+      "retrieval_hit": null,
+      "quality_score": 5,
+      "refused": true,
+      "answer": "I\u2019m sorry, but the provided documents don\u2019t contain any information about the 2024 UEFA European Championship. You might try asking about topics that are covered in the context, such as Kubernetes job recovery, cost\u2011optimized job configurations, CronJob backups, or pod autoscaling.",
+      "sources": [
+        "cronjobs.docx",
+        "pods_autoscale.html",
+        "cronjobs.docx",
+        "pods_autoscale.html",
+        "job_management.html"
+      ]
+    }
+  ]
+}

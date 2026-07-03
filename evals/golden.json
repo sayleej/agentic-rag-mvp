@@ -1,0 +1,89 @@
+{
+  "description": "Golden dataset — the fixed exam. Each item has a question, the document the answer lives in, and a reference answer for the judge to grade against. 'out_of_scope' items are correct when the assistant refuses.",
+  "items": [
+    {
+      "id": "job-restart-policy",
+      "type": "answerable",
+      "question": "What restart policies are allowed for Kubernetes Jobs?",
+      "expected_source": "cronjobs.docx",
+      "reference_answer": "Jobs have strict restart policy requirements: OnFailure (kubelet restarts the container) or Never. The Always policy used by long-running services is not allowed for Jobs."
+    },
+    {
+      "id": "job-vs-deployment",
+      "type": "answerable",
+      "question": "How is a Kubernetes Job different from a Deployment?",
+      "expected_source": "cronjobs.docx",
+      "reference_answer": "A Job runs finite, task-oriented workloads that execute to completion and then exit, while Deployments manage long-running services whose pods run indefinitely."
+    },
+    {
+      "id": "cronjob-purpose",
+      "type": "answerable",
+      "question": "What is a CronJob used for in Kubernetes?",
+      "expected_source": "cronjobs.docx",
+      "reference_answer": "A CronJob runs Jobs on a recurring schedule (cron syntax) — for scheduled operations like backups, maintenance, and periodic batch tasks."
+    },
+    {
+      "id": "databricks-tools",
+      "type": "answerable",
+      "question": "Which developer tools can I use to automate creating and managing jobs in Databricks?",
+      "expected_source": "job_management.html",
+      "reference_answer": "The Databricks CLI, the Databricks SDKs (available for Python, Java, Go, or R), and the REST API. For CI/CD, Databricks Asset Bundles or the Databricks Terraform provider are recommended."
+    },
+    {
+      "id": "job-status-check",
+      "type": "answerable",
+      "question": "How do I check the status and logs of a Kubernetes job?",
+      "expected_source": "monitor_job.docx",
+      "reference_answer": "Use kubectl to check job status (e.g., kubectl get jobs, kubectl describe job) and examine pod logs with kubectl logs to troubleshoot issues."
+    },
+    {
+      "id": "work-queue-storage",
+      "type": "answerable",
+      "question": "What storage service does the fine parallel processing work queue example use?",
+      "expected_source": "parallel_work_queue.txt",
+      "reference_answer": "Redis — a storage service is started to hold the work queue, a queue is created and filled with messages, then a Job works on tasks from the queue."
+    },
+    {
+      "id": "work-queue-pattern",
+      "type": "answerable",
+      "question": "How does the parallel work queue pattern process tasks?",
+      "expected_source": "parallel_work_queue.txt",
+      "reference_answer": "A Kubernetes Job runs multiple parallel worker pods; as each pod is created it picks up one unit of work from the task queue, processes it, and repeats until the queue is empty."
+    },
+    {
+      "id": "hpa-vs-vpa",
+      "type": "answerable",
+      "question": "What is the difference between Horizontal and Vertical Pod Autoscaling?",
+      "expected_source": "pods_autoscale.html",
+      "reference_answer": "HPA scales the number of pods up or down based on metrics like CPU or memory, while VPA adjusts the resource requests/limits (CPU and memory) allocated to individual pods."
+    },
+    {
+      "id": "metrics-server",
+      "type": "answerable",
+      "question": "What needs to be installed in the cluster before testing HPA and VPA?",
+      "expected_source": "pods_autoscale.html",
+      "reference_answer": "The Metrics Server must be installed in the Kubernetes cluster — it is essential before testing Horizontal or Vertical Pod Autoscaler."
+    },
+    {
+      "id": "oos-refund",
+      "type": "out_of_scope",
+      "question": "What is our company refund policy?",
+      "expected_source": null,
+      "reference_answer": "The assistant should state the documents contain no information about a refund policy and refuse to invent one."
+    },
+    {
+      "id": "oos-malloc",
+      "type": "out_of_scope",
+      "question": "How do I write a memory allocator in C?",
+      "expected_source": null,
+      "reference_answer": "With the default curated-only search, the assistant should state the documents don't cover writing a memory allocator and refuse to invent an answer."
+    },
+    {
+      "id": "oos-worldcup",
+      "type": "out_of_scope",
+      "question": "Who won the 2024 UEFA European Championship?",
+      "expected_source": null,
+      "reference_answer": "The assistant should state the documents contain no information about football results and refuse to answer from outside knowledge."
+    }
+  ]
+}
