@@ -32,6 +32,7 @@ CHUNK_SIZE = 1500          # max characters per chunk
 
 # --- Retrieval ---
 TOP_K = 5                  # how many chunks to hand the LLM per question
+CANDIDATES = 15            # how many to fetch from Qdrant before reranking
 
 
 def validate() -> list[str]:

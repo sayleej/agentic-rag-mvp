@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from backend import config
 from backend.embeddings import embed_query
 from backend.planner import plan
+from backend.reranker import rerank
 from backend.responder import answer, answer_conversational
 from backend.vector_store import count_chunks, search
 
@@ -58,7 +59,12 @@ def query(request: QueryRequest):
         }
 
     query_vector = embed_query(decision["search_query"])
-    chunks = search(query_vector, include_noisy=request.include_noisy)
+    candidates = search(
+        query_vector,
+        limit=config.CANDIDATES,
+        include_noisy=request.include_noisy,
+    )
+    chunks = rerank(decision["search_query"], candidates)
     reply = answer(request.question, chunks, history)
     return {
         "answer": reply,

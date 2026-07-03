@@ -22,6 +22,7 @@ for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
 from backend import config
 from backend.embeddings import embed_query
 from backend.planner import plan
+from backend.reranker import rerank
 from backend.responder import answer, answer_conversational
 from backend.vector_store import count_chunks, search
 
@@ -106,10 +107,12 @@ if question:
                     chunks = []
                     reply = answer_conversational(question, history)
                 else:
-                    chunks = search(
+                    candidates = search(
                         embed_query(decision["search_query"]),
+                        limit=config.CANDIDATES,
                         include_noisy=include_noisy,
                     )
+                    chunks = rerank(decision["search_query"], candidates)
                     reply = answer(question, chunks, history)
             except Exception as e:
                 st.error(f"Something went wrong: {e}")

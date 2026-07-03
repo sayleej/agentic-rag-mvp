@@ -10,6 +10,7 @@ groq                    # Groq's SDK for fast LLM answers
 
 # --- Vector database ---
 qdrant-client           # Client for Qdrant Cloud vector search
+flashrank               # Local cross-encoder reranker (no API needed)
 
 # --- Document parsing ---
 pypdf                   # PDF text extraction
