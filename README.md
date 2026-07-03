@@ -3,9 +3,14 @@
 A retrieval-augmented generation (RAG) assistant that answers questions about
 your documents — grounded, cited, and honest when it doesn't know.
 
-**Phase 1 scope:** document ingestion → Gemini embeddings → Qdrant vector
+**Phase 1:** document ingestion → Gemini embeddings → Qdrant vector
 search → Groq answer generation → Streamlit chat UI.
-(Planned later phases: query planner, reranking, guardrails, LLM gateway, evals.)
+
+**Phase 2 (agentic retrieval):** planner (intent routing + query rewriting),
+true/noisy source filtering with curated-only default, and FlashRank
+cross-encoder reranking (fetch 15 candidates, keep the best 5).
+
+(Planned later: guardrails, LLM gateway, evals.)
 
 📖 **New to RAG?** Read the [deep understanding guide](docs/UNDERSTANDING.md) —
 a plain-English walkthrough of every component, the product decisions behind

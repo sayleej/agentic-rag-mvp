@@ -167,26 +167,67 @@ question "how would you reduce hallucinations?"
 
 ---
 
-## 7. What Phase 1 deliberately leaves out
+## 7. Phase 2 — agentic retrieval (shipped)
 
-- **Planner** — an LLM step that detects small talk (skip the search) and
-  rewrites vague questions into sharper search queries.
-- **Reranker** — two-stage retrieval: fetch 15 candidates fast, re-sort
-  with a precise local model, keep the best 5.
-- **Source filtering** — tag chunks `true`/`noisy` at ingestion; exclude
-  noise at query time.
+### The planner (`backend/planner.py`) — the receptionist
+Before any search, a fast LLM call does two jobs:
+1. **Routing** — small talk ("hi", "thanks") skips retrieval entirely and
+   gets a conversational reply; real questions go to the library.
+2. **Query rewriting** — vague follow-ups become self-contained search
+   queries. "What are the downsides of the vertical one?" (after a pod
+   autoscaling discussion) becomes "downsides of vertical pod autoscaling."
+   Without this, we'd embed the literal words "the vertical one," which
+   match nothing.
+
+It fails safe: if the planner call errors, the message is treated as
+technical and searched with its original wording — a wasted search beats
+a lost answer.
+
+**War story — the emergent guardrail.** The first planner prompt described
+the library as "Kubernetes docs," and the planner started silently
+classifying *any* non-Kubernetes question as small talk — an accidental
+scope guardrail that broke the noise-toggle demo. Fix: one prompt
+paragraph clarifying that the planner only separates questions from
+chit-chat, and the search results decide what's answerable. Lesson:
+prompts are product specs, and they get bugs like any spec. Test them.
+
+### Source filtering (`data/true/`, `data/noisy/`) — the stickers
+Every chunk now carries a `source_type` label, assigned from its folder
+at ingestion. Search defaults to curated ("true") documents only; a UI
+toggle opens the full library for the noise demonstration. The 411
+already-indexed chunks were relabeled **in place** — updating a card's
+sticker doesn't require re-fingerprinting it, so this cost zero embedding
+quota. (Qdrant detail: filtering on a field requires a payload index on
+that field, like a database column index.)
+
+This feature is the productized version of the hallucination-vs-scope
+lesson in section 6: off-topic answers weren't a model problem, so the
+fix isn't a model fix — it's metadata and filtering.
+
+### Reranking (`backend/reranker.py`) — the careful second reader
+Two-stage retrieval: Qdrant fetches 15 candidates fast (comparing
+pre-computed embeddings — quick but nearsighted), then FlashRank's
+cross-encoder re-reads the query and each candidate *together* and keeps
+the best 5. Analogy: skim 100 resumes to shortlist 15, then do real
+interviews for the final 5. FlashRank runs locally on the CPU — no API,
+no key, no per-question cost. It fails safe too: if the model can't load,
+results pass through in vector order.
+
+---
+
+## 8. What later phases will add
+
 - **Guardrails** — screen off-topic/abusive prompts before they spend
   API quota (matters once publicly hosted).
 - **LLM gateway** — fallback models and caching.
 - **Evals** — a golden question set scored automatically, so quality
   changes become numbers instead of vibes.
 
-Each is a conscious backlog item, not an oversight — MVP means the
-smallest thing that proves the core loop works.
+Each is a conscious backlog item, not an oversight.
 
 ---
 
-## 8. Glossary
+## 9. Glossary
 
 - **RAG** — Retrieval-Augmented Generation; search your documents first,
   then have an LLM answer from what was found.
