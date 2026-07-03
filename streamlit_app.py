@@ -54,13 +54,33 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+question = st.chat_input("Ask about Kubernetes jobs, cron jobs, or autoscaling...")
+
+# Empty state: tell first-time users what this assistant knows.
+if not st.session_state.messages:
+    st.title("📚 Kubernetes Docs Assistant")
+    st.markdown(
+        "I answer questions about a **Kubernetes operations** document library — "
+        "jobs, cron jobs, monitoring, parallel work queues, and pod autoscaling. "
+        "Every answer cites the documents it came from, and I'll say so plainly "
+        "if the docs don't cover your question."
+    )
+    st.markdown("**Try one of these:**")
+    for sample in (
+        "How does pod autoscaling work?",
+        "What is a CronJob and when would I use one?",
+        "How do I monitor a running job?",
+    ):
+        if st.button(sample):
+            question = sample
+
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if message.get("sources"):
             render_sources(message["sources"])
 
-if question := st.chat_input("Ask about your documents..."):
+if question:
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user"):
         st.markdown(question)
