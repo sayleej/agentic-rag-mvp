@@ -7,6 +7,7 @@ pydantic                # Data validation for API requests/responses
 # --- AI services ---
 google-genai            # Google's SDK for Gemini embeddings
 groq                    # Groq's SDK for fast LLM answers
+portkey-ai              # Optional LLM gateway — latency/cost dashboards, caching
 
 # --- Vector database ---
 qdrant-client           # Client for Qdrant Cloud vector search

@@ -10,19 +10,7 @@ from __future__ import annotations
 
 import json
 
-from groq import Groq
-
-from backend.config import GROQ_API_KEY, GROQ_MODEL
-
-_client = None
-
-
-def _get_client() -> Groq:
-    global _client
-    if _client is None:
-        _client = Groq(api_key=GROQ_API_KEY)
-    return _client
-
+from backend.llm import chat
 
 PLANNER_PROMPT = """You are the routing step of a document Q&A assistant.
 The document library covers Kubernetes operations: jobs, cron jobs, job
@@ -54,8 +42,7 @@ def plan(question: str, history: list[dict]) -> dict:
     ) or "(no history)"
 
     try:
-        response = _get_client().chat.completions.create(
-            model=GROQ_MODEL,
+        reply = chat(
             messages=[
                 {"role": "system", "content": PLANNER_PROMPT},
                 {
@@ -64,9 +51,9 @@ def plan(question: str, history: list[dict]) -> dict:
                 },
             ],
             temperature=0.0,
-            response_format={"type": "json_object"},
+            json_mode=True,
         )
-        decision = json.loads(response.choices[0].message.content)
+        decision = json.loads(reply)
         intent = decision.get("intent", "technical")
         search_query = (decision.get("search_query") or "").strip() or question
         if intent not in ("technical", "conversational"):

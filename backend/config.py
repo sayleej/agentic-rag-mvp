@@ -18,6 +18,10 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
+# --- LLM gateway (optional) ---
+PORTKEY_API_KEY = os.getenv("PORTKEY_API_KEY", "")
+PORTKEY_PROVIDER_SLUG = os.getenv("PORTKEY_PROVIDER_SLUG", "")
+
 # --- Models ---
 EMBEDDING_MODEL = "gemini-embedding-001"   # 3072-dim vectors, tuned for retrieval
 EMBEDDING_DIM = 3072

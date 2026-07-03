@@ -22,17 +22,15 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from groq import Groq
-
 from backend import config
 from backend.embeddings import embed_query
+from backend.llm import chat as llm_chat
 from backend.planner import plan
 from backend.reranker import rerank
 from backend.responder import answer
 from backend.vector_store import search
 
 EVALS_DIR = Path(__file__).resolve().parent
-JUDGE_MODEL = config.GROQ_MODEL
 
 JUDGE_PROMPT = """You are grading a document Q&A assistant against an answer key.
 
@@ -58,9 +56,7 @@ def run_pipeline(question: str) -> dict:
 
 
 def judge(question: str, reference: str, model_answer: str) -> dict:
-    client = Groq(api_key=config.GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model=JUDGE_MODEL,
+    reply = llm_chat(
         messages=[
             {"role": "system", "content": JUDGE_PROMPT},
             {
@@ -73,9 +69,9 @@ def judge(question: str, reference: str, model_answer: str) -> dict:
             },
         ],
         temperature=0.0,
-        response_format={"type": "json_object"},
+        json_mode=True,
     )
-    return json.loads(response.choices[0].message.content)
+    return json.loads(reply)
 
 
 def main() -> None:

@@ -40,7 +40,9 @@ def health():
         chunks = count_chunks()
     except Exception as e:
         return {"status": "qdrant_unreachable", "error": str(e)}
-    return {"status": "ok", "indexed_chunks": chunks}
+    from backend.llm import gateway_status
+
+    return {"status": "ok", "indexed_chunks": chunks, "llm_via": gateway_status()}
 
 
 @app.post("/query")
