@@ -1,4 +1,4 @@
-# Agentic RAG MVP
+#  RAG MVP
 
 A retrieval-augmented generation (RAG) assistant that answers questions about
 your documents — grounded, cited, and honest when it doesn't know.
