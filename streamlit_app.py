@@ -21,6 +21,7 @@ for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
 
 from backend import config
 from backend.embeddings import embed_query
+from backend.guardrails import BLOCKED_MESSAGE, check
 from backend.planner import plan
 from backend.reranker import rerank
 from backend.responder import answer, answer_conversational
@@ -102,8 +103,12 @@ if question:
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state.messages[:-1]
                 ]
-                decision = plan(question, history)
-                if decision["intent"] == "conversational":
+                verdict = check(question)
+                if not verdict["allowed"]:
+                    decision = {"intent": "blocked", "search_query": None}
+                    chunks = []
+                    reply = BLOCKED_MESSAGE
+                elif (decision := plan(question, history))["intent"] == "conversational":
                     chunks = []
                     reply = answer_conversational(question, history)
                 else:
@@ -120,6 +125,8 @@ if question:
 
         if decision["intent"] == "technical":
             st.caption(f"🔎 Searched the library for: *{decision['search_query']}*")
+        elif decision["intent"] == "blocked":
+            st.caption("🛡️ Blocked by guardrails")
         else:
             st.caption("💬 Conversational — no document search needed")
         st.markdown(reply)

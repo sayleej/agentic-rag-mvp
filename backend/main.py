@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from backend import config
 from backend.embeddings import embed_query
+from backend.guardrails import BLOCKED_MESSAGE, check
 from backend.planner import plan
 from backend.reranker import rerank
 from backend.responder import answer, answer_conversational
@@ -49,6 +50,15 @@ def health():
 def query(request: QueryRequest):
     """One chat turn: plan, then either search + grounded answer, or chat."""
     history = [m.model_dump() for m in request.history]
+
+    # Gate 0: guardrails — hostile input stops here, before any other spend.
+    verdict = check(request.question)
+    if not verdict["allowed"]:
+        return {
+            "answer": BLOCKED_MESSAGE,
+            "sources": [],
+            "plan": {"intent": f"blocked ({verdict['category']})", "search_query": None},
+        }
 
     decision = plan(request.question, history)
 

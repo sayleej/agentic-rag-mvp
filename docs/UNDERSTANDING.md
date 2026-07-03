@@ -215,15 +215,38 @@ results pass through in vector order.
 
 ---
 
-## 8. What later phases will add
+## 8. Phase 3 — production trust (shipped)
 
-- **Guardrails** — screen off-topic/abusive prompts before they spend
-  API quota (matters once publicly hosted).
-- **LLM gateway** — fallback models and caching.
-- **Evals** — a golden question set scored automatically, so quality
-  changes become numbers instead of vibes.
+### Evals (`evals/`) — the fixed exam
+A golden dataset of 12 questions: 9 answerable (each pinned to the
+document that must be retrieved, with a reference answer) and 3
+out-of-scope traps where refusing IS the correct behavior. The runner
+(`python -m evals.run`) measures three things: retrieval hit rate
+(objective — right document in the sources?), answer quality (an
+LLM-as-judge grades against the reference answers, 1–5), and refusal
+accuracy. Results are saved with timestamps so every future change gets
+judged by numbers, not vibes. First run: 100% hit rate, 4.9/5 quality,
+100% refusal accuracy — a score that good partly means the exam is too
+easy; real eval discipline is adding questions until some fail.
 
-Each is a conscious backlog item, not an oversight.
+### LLM gateway (`backend/llm.py`) — the switchboard
+Every LLM call (planner, responder, judge, guard) goes through one
+doorway. If Portkey keys are configured, calls route through the Portkey
+gateway, which records latency, tokens, cost, and errors in a dashboard;
+without keys, calls fall back to Groq directly and nothing breaks. The
+"single doorway" refactor is why adding the gateway took minutes —
+centralize the things you'll want to instrument.
+
+### Guardrails (`backend/guardrails.py`) — the bouncer
+Gate zero, before the planner: an LLM screening call blocks abuse,
+prompt-injection attempts ("ignore your instructions..."), and harmful
+requests — and deliberately does NOT block merely off-topic questions
+(the planner and responder handle those gracefully; off-topic is not
+hostile). Blocked messages stop at one cheap call instead of the full
+pipeline. It fails open: if the guard errors, the message passes and the
+responder's grounding rules remain the second line of defense —
+availability over strictness for a demo; a bank would choose the
+opposite.
 
 ---
 

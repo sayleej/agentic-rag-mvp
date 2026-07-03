@@ -10,7 +10,11 @@ search → Groq answer generation → Streamlit chat UI.
 true/noisy source filtering with curated-only default, and FlashRank
 cross-encoder reranking (fetch 15 candidates, keep the best 5).
 
-(Planned later: guardrails, LLM gateway, evals.)
+**Phase 3 (production trust):** evals (golden dataset + LLM-as-judge +
+refusal checks — run `python -m evals.run`), optional Portkey gateway
+(latency/cost observability, one doorway for all LLM calls), and input
+guardrails (blocks abuse, prompt injection, and harmful requests; never
+blocks merely off-topic questions).
 
 📖 **New to RAG?** Read the [deep understanding guide](docs/UNDERSTANDING.md) —
 a plain-English walkthrough of every component, the product decisions behind
