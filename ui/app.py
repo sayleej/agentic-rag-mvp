@@ -5,6 +5,7 @@ Run from the project root (backend must be running first):
 """
 
 import os
+import uuid
 from pathlib import Path
 
 import requests
@@ -19,6 +20,10 @@ st.set_page_config(page_title="Docs Assistant", page_icon="📚")
 # --- Session state: the chat transcript survives across reruns ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "thread_id" not in st.session_state:
+    # One stable ID per browser session — lets the backend's LangGraph
+    # checkpointer keep server-side memory for this conversation.
+    st.session_state.thread_id = str(uuid.uuid4())
 
 # --- Sidebar: backend status + controls ---
 with st.sidebar:
@@ -96,6 +101,7 @@ if question:
                         "question": question,
                         "history": history,
                         "include_noisy": include_noisy,
+                        "thread_id": st.session_state.thread_id,
                     },
                     timeout=120,
                 )

@@ -9,6 +9,7 @@ streamlit_app.py. Paste API keys into the app's Secrets settings.
 """
 
 import os
+import uuid
 
 import streamlit as st
 
@@ -20,17 +21,16 @@ for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
         os.environ[key] = st.secrets[key]
 
 from backend import config
-from backend.embeddings import embed_query
+from backend.graph import rag_agent
 from backend.guardrails import BLOCKED_MESSAGE, check
-from backend.planner import plan
-from backend.reranker import rerank
-from backend.responder import answer, answer_conversational
-from backend.vector_store import count_chunks, search
+from backend.vector_store import count_chunks
 
 st.set_page_config(page_title="Docs Assistant", page_icon="📚")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id = str(uuid.uuid4())
 
 
 def render_sources(sources):
@@ -107,31 +107,32 @@ if question:
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state.messages[:-1]
                 ]
-                steps = []
                 verdict = check(question)
                 if not verdict["allowed"]:
                     decision = {"intent": "blocked", "search_query": None}
                     chunks = []
                     reply = BLOCKED_MESSAGE
-                    steps.append(f"Guardrails: blocked ({verdict['category']}) — pipeline stopped")
-                elif (decision := plan(question, history))["intent"] == "conversational":
-                    chunks = []
-                    steps += ["Guardrails: passed", "Planner: conversational — retrieval skipped"]
-                    reply = answer_conversational(question, history)
-                    steps.append("Response generated from conversation memory")
+                    steps = [f"Guardrails: blocked ({verdict['category']}) — pipeline stopped"]
                 else:
-                    steps += ["Guardrails: passed",
-                              f"Planner: technical — search query: '{decision['search_query']}'"]
-                    candidates = search(
-                        embed_query(decision["search_query"]),
-                        limit=config.CANDIDATES,
-                        include_noisy=include_noisy,
-                    )
-                    steps.append(f"Retrieved {len(candidates)} candidates from Qdrant (vector search)")
-                    chunks = rerank(decision["search_query"], candidates)
-                    steps.append(f"Reranked to top {len(chunks)} chunks (cross-encoder)")
-                    reply = answer(question, chunks, history)
-                    steps.append("Grounded answer generated with citations")
+                    initial_state = {
+                        "question": question,
+                        "history": history,
+                        "include_noisy": include_noisy,
+                        "intent": "",
+                        "search_query": "",
+                        "chunks": [],
+                        "answer": "",
+                        "steps": ["Guardrails: passed"],
+                    }
+                    graph_config = {"configurable": {"thread_id": st.session_state.thread_id}}
+                    final_state = rag_agent.invoke(initial_state, config=graph_config)
+                    decision = {
+                        "intent": final_state["intent"],
+                        "search_query": final_state["search_query"] or None,
+                    }
+                    chunks = final_state.get("chunks", [])
+                    reply = final_state["answer"]
+                    steps = final_state["steps"]
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
                 st.stop()

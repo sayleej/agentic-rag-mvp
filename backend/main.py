@@ -13,12 +13,9 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from backend import config
-from backend.embeddings import embed_query
+from backend.graph import rag_agent
 from backend.guardrails import BLOCKED_MESSAGE, check
-from backend.planner import plan
-from backend.reranker import rerank
-from backend.responder import answer, answer_conversational
-from backend.vector_store import count_chunks, search
+from backend.vector_store import count_chunks
 
 # Sends traces to the Logfire dashboard only when LOGFIRE_TOKEN is set;
 # otherwise spans are no-ops and nothing leaves the machine.
@@ -37,6 +34,7 @@ class QueryRequest(BaseModel):
     question: str
     history: list[ChatMessage] = []
     include_noisy: bool = False  # search the noise documents too
+    thread_id: str = "default"   # keys the graph's server-side memory per conversation
 
 
 def require_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
@@ -67,56 +65,40 @@ def health():
 
 @app.post("/query", dependencies=[Depends(require_api_key)])
 def query(request: QueryRequest):
-    """One chat turn: guard, plan, then either search + grounded answer, or chat."""
+    """One chat turn: guard, then run the LangGraph agent (plan -> retrieve? -> respond)."""
     history = [m.model_dump() for m in request.history]
-    steps: list[str] = []
 
     # Gate 0: guardrails — hostile input stops here, before any other spend.
+    # Kept outside the graph deliberately: a blocked message shouldn't touch
+    # the agent's state or its checkpointed memory at all.
     with logfire.span("guardrails"):
         verdict = check(request.question)
     if not verdict["allowed"]:
-        steps.append(f"Guardrails: blocked ({verdict['category']}) — pipeline stopped")
         return {
             "answer": BLOCKED_MESSAGE,
             "sources": [],
             "plan": {"intent": f"blocked ({verdict['category']})", "search_query": None},
-            "steps": steps,
-        }
-    steps.append("Guardrails: passed")
-
-    with logfire.span("planner"):
-        decision = plan(request.question, history)
-
-    if decision["intent"] == "conversational":
-        steps.append("Planner: conversational — retrieval skipped")
-        with logfire.span("responder (conversational)"):
-            reply = answer_conversational(request.question, history)
-        steps.append("Response generated from conversation memory")
-        return {
-            "answer": reply,
-            "sources": [],
-            "plan": {"intent": "conversational", "search_query": None},
-            "steps": steps,
+            "steps": [f"Guardrails: blocked ({verdict['category']}) — pipeline stopped"],
         }
 
-    steps.append(f"Planner: technical — search query: '{decision['search_query']}'")
-    with logfire.span("embed query"):
-        query_vector = embed_query(decision["search_query"])
-    with logfire.span("qdrant search"):
-        candidates = search(
-            query_vector,
-            limit=config.CANDIDATES,
-            include_noisy=request.include_noisy,
-        )
-    steps.append(f"Retrieved {len(candidates)} candidates from Qdrant (vector search)")
-    with logfire.span("rerank"):
-        chunks = rerank(decision["search_query"], candidates)
-    steps.append(f"Reranked to top {len(chunks)} chunks (cross-encoder)")
-    with logfire.span("responder"):
-        reply = answer(request.question, chunks, history)
-    steps.append("Grounded answer generated with citations")
+    initial_state = {
+        "question": request.question,
+        "history": history,
+        "include_noisy": request.include_noisy,
+        "intent": "",
+        "search_query": "",
+        "chunks": [],
+        "answer": "",
+        "steps": ["Guardrails: passed"],
+    }
+    graph_config = {"configurable": {"thread_id": request.thread_id}}
+
+    with logfire.span("agent graph"):
+        final_state = rag_agent.invoke(initial_state, config=graph_config)
+
+    chunks = final_state.get("chunks", [])
     return {
-        "answer": reply,
+        "answer": final_state["answer"],
         "sources": [
             {
                 "source": c["source"],
@@ -127,6 +109,9 @@ def query(request: QueryRequest):
             }
             for c in chunks
         ],
-        "plan": {"intent": "technical", "search_query": decision["search_query"]},
-        "steps": steps,
+        "plan": {
+            "intent": final_state["intent"],
+            "search_query": final_state["search_query"] or None,
+        },
+        "steps": final_state["steps"],
     }

@@ -25,6 +25,9 @@ logfire[fastapi]                 # Pipeline tracing (spans/traces); no-op withou
 # --- Reliability ---
 tenacity                # Retry logic with proper wait strategies
 
+# --- Agent orchestration ---
+langgraph               # State machine: planner -> retriever? -> responder, with memory
+
 # --- Frontend ---
 streamlit               # Chat UI
 requests                # Lets the UI call the backend over HTTP
