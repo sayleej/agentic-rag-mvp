@@ -22,6 +22,12 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 PORTKEY_API_KEY = os.getenv("PORTKEY_API_KEY", "")
 PORTKEY_PROVIDER_SLUG = os.getenv("PORTKEY_PROVIDER_SLUG", "")
 
+# --- Backend auth (optional) ---
+# Blank = no auth required (local dev, the free public demo). Set this to
+# require an `X-API-Key` header on /query — a real auth boundary the
+# instant a deployment sets one.
+API_KEY = os.getenv("API_KEY", "")
+
 # --- Models ---
 EMBEDDING_MODEL = "gemini-embedding-001"   # 3072-dim vectors, tuned for retrieval
 EMBEDDING_DIM = 3072

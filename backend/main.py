@@ -6,8 +6,10 @@ Run from the project root:
 
 from __future__ import annotations
 
+from typing import Optional
+
 import logfire
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from backend import config
@@ -37,6 +39,17 @@ class QueryRequest(BaseModel):
     include_noisy: bool = False  # search the noise documents too
 
 
+def require_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
+    """Gate every non-health route behind a shared secret.
+
+    Skipped entirely when API_KEY isn't set in config — keeps local dev
+    and the free public demo frictionless, while giving any deployment
+    that DOES set the key a real auth boundary.
+    """
+    if config.API_KEY and x_api_key != config.API_KEY:
+        raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key header.")
+
+
 @app.get("/health")
 def health():
     """Lets the UI show whether the backend and its index are alive."""
@@ -52,7 +65,7 @@ def health():
     return {"status": "ok", "indexed_chunks": chunks, "llm_via": gateway_status()}
 
 
-@app.post("/query")
+@app.post("/query", dependencies=[Depends(require_api_key)])
 def query(request: QueryRequest):
     """One chat turn: guard, plan, then either search + grounded answer, or chat."""
     history = [m.model_dump() for m in request.history]

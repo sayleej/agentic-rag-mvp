@@ -22,6 +22,9 @@ beautifulsoup4          # HTML text extraction
 # --- Observability ---
 logfire[fastapi]                 # Pipeline tracing (spans/traces); no-op without LOGFIRE_TOKEN
 
+# --- Reliability ---
+tenacity                # Retry logic with proper wait strategies
+
 # --- Frontend ---
 streamlit               # Chat UI
 requests                # Lets the UI call the backend over HTTP

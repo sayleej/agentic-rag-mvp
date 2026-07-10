@@ -3,13 +3,17 @@
 Run from the project root:
     .venv/bin/python -m evals.run
 
-Three metrics:
+Four metrics:
   1. Retrieval hit rate  — did the expected document appear in the sources?
      (objective; no LLM involved)
   2. Answer quality      — LLM-as-judge compares the answer to the reference
      answer and scores 1-5.
   3. Refusal accuracy    — for out-of-scope questions, did the assistant
      honestly refuse instead of inventing an answer?
+  4. Guardrail accuracy  — did the safety classifier block what it should
+     block (abuse/injection/harmful) and pass what it should pass
+     (off-topic, normal questions, greetings)? Tests the guardrail in
+     isolation, not the full pipeline.
 
 Results are printed and saved to evals/results/<timestamp>.json so runs
 can be compared over time.
@@ -24,6 +28,7 @@ from pathlib import Path
 
 from backend import config
 from backend.embeddings import embed_query
+from backend.guardrails import check as check_guardrail
 from backend.llm import chat as llm_chat
 from backend.planner import plan
 from backend.reranker import rerank
@@ -80,6 +85,26 @@ def main() -> None:
 
     print(f"Running {len(golden)} eval items...\n")
     for item in golden:
+        if item["type"] == "guardrail":
+            verdict = check_guardrail(item["question"])
+            passed = verdict["allowed"] != item["should_be_blocked"]
+            detail = (
+                f"blocked={'YES' if not verdict['allowed'] else 'NO'} "
+                f"category={verdict['category']} "
+                f"(expected blocked={item['should_be_blocked']})"
+            )
+            status = "PASS" if passed else "FAIL"
+            print(f"  [{status}] {item['id']}: {detail}")
+            results.append({
+                "id": item["id"],
+                "type": "guardrail",
+                "passed": passed,
+                "allowed": verdict["allowed"],
+                "category": verdict["category"],
+                "expected_category": item["expected_category"],
+            })
+            continue
+
         result = run_pipeline(item["question"])
         verdict = judge(item["question"], item["reference_answer"], result["answer"])
 
@@ -105,14 +130,16 @@ def main() -> None:
             "answer": result["answer"],
             "sources": result["sources"],
         })
-        time.sleep(1)  # be gentle with rate limits
+        time.sleep(8)  # be gentle with Groq's free-tier tokens-per-minute limit
 
     answerable = [r for r in results if r["type"] == "answerable"]
     oos = [r for r in results if r["type"] == "out_of_scope"]
+    guard = [r for r in results if r["type"] == "guardrail"]
 
     hit_rate = sum(1 for r in answerable if r["retrieval_hit"]) / len(answerable)
     avg_quality = sum(r["quality_score"] for r in answerable) / len(answerable)
     refusal_rate = sum(1 for r in oos if r["refused"]) / len(oos)
+    guardrail_accuracy = sum(1 for r in guard if r["passed"]) / len(guard) if guard else None
     pass_rate = sum(1 for r in results if r["passed"]) / len(results)
 
     summary = {
@@ -120,6 +147,7 @@ def main() -> None:
         "retrieval_hit_rate": round(hit_rate, 3),
         "avg_answer_quality": round(avg_quality, 2),
         "refusal_accuracy": round(refusal_rate, 3),
+        "guardrail_accuracy": round(guardrail_accuracy, 3) if guardrail_accuracy is not None else None,
         "overall_pass_rate": round(pass_rate, 3),
         "items": results,
     }
@@ -128,6 +156,8 @@ def main() -> None:
     print(f"Retrieval hit rate:  {hit_rate:.0%}  (right document in sources)")
     print(f"Answer quality:      {avg_quality:.1f}/5  (judge vs reference answers)")
     print(f"Refusal accuracy:    {refusal_rate:.0%}  (honest refusals when out of scope)")
+    if guardrail_accuracy is not None:
+        print(f"Guardrail accuracy:  {guardrail_accuracy:.0%}  (correct block/pass decisions)")
     print(f"Overall pass rate:   {pass_rate:.0%}")
 
     out_dir = EVALS_DIR / "results"
