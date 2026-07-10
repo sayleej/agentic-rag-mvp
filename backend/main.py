@@ -105,7 +105,13 @@ def query(request: QueryRequest):
     return {
         "answer": reply,
         "sources": [
-            {"source": c["source"], "score": c["score"], "text": c["text"]}
+            {
+                "source": c["source"],
+                "score": c["score"],
+                "vector_score": c.get("vector_score"),
+                "rerank_score": c.get("rerank_score"),
+                "text": c["text"],
+            }
             for c in chunks
         ],
         "plan": {"intent": "technical", "search_query": decision["search_query"]},

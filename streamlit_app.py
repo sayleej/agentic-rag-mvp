@@ -36,7 +36,11 @@ if "messages" not in st.session_state:
 def render_sources(sources):
     with st.expander("📄 Sources"):
         for s in sources:
-            st.markdown(f"**{s['source']}** (relevance {s['score']:.2f})")
+            if s.get("rerank_score") is not None:
+                label = f"vector {s['vector_score']:.2f} · rerank {s['rerank_score']:.2f}"
+            else:
+                label = f"vector {s['score']:.2f}"
+            st.markdown(f"**{s['source']}** ({label})")
             st.caption(s["text"][:300] + ("..." if len(s["text"]) > 300 else ""))
 
 

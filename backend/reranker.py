@@ -22,10 +22,16 @@ def _get_ranker():
     global _ranker, _ranker_failed
     if _ranker is None and not _ranker_failed:
         try:
+            from pathlib import Path
+
             from flashrank import Ranker
 
             # Small (~34 MB) cross-encoder, downloaded once and cached.
-            _ranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2")
+            # Cache lives in the home directory, NOT /tmp — the OS clears
+            # /tmp, which leaves a broken half-cache that fails to load.
+            cache = Path.home() / ".cache" / "flashrank"
+            cache.mkdir(parents=True, exist_ok=True)
+            _ranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2", cache_dir=str(cache))
         except Exception as e:
             print(f"FlashRank unavailable ({e}) — falling back to vector order.")
             _ranker_failed = True
@@ -51,7 +57,11 @@ def rerank(query: str, chunks: list[dict], top_n: int = TOP_K) -> list[dict]:
         reranked = []
         for r in results[:top_n]:
             chunk = dict(r["meta"])
-            chunk["score"] = float(r["score"])  # replace vector score
+            # Keep both scales: cosine similarity from Qdrant (~0.7 = good)
+            # and the cross-encoder's confidence (can legitimately reach 1.0).
+            chunk["vector_score"] = chunk.get("score")
+            chunk["rerank_score"] = float(r["score"])
+            chunk["score"] = chunk["rerank_score"]
             reranked.append(chunk)
         return reranked
     except Exception as e:
