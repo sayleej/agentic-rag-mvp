@@ -103,22 +103,31 @@ if question:
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state.messages[:-1]
                 ]
+                steps = []
                 verdict = check(question)
                 if not verdict["allowed"]:
                     decision = {"intent": "blocked", "search_query": None}
                     chunks = []
                     reply = BLOCKED_MESSAGE
+                    steps.append(f"Guardrails: blocked ({verdict['category']}) — pipeline stopped")
                 elif (decision := plan(question, history))["intent"] == "conversational":
                     chunks = []
+                    steps += ["Guardrails: passed", "Planner: conversational — retrieval skipped"]
                     reply = answer_conversational(question, history)
+                    steps.append("Response generated from conversation memory")
                 else:
+                    steps += ["Guardrails: passed",
+                              f"Planner: technical — search query: '{decision['search_query']}'"]
                     candidates = search(
                         embed_query(decision["search_query"]),
                         limit=config.CANDIDATES,
                         include_noisy=include_noisy,
                     )
+                    steps.append(f"Retrieved {len(candidates)} candidates from Qdrant (vector search)")
                     chunks = rerank(decision["search_query"], candidates)
+                    steps.append(f"Reranked to top {len(chunks)} chunks (cross-encoder)")
                     reply = answer(question, chunks, history)
+                    steps.append("Grounded answer generated with citations")
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
                 st.stop()
@@ -129,6 +138,10 @@ if question:
             st.caption("🛡️ Blocked by guardrails")
         else:
             st.caption("💬 Conversational — no document search needed")
+        if steps:
+            with st.expander("⚙️ Thought process"):
+                for step in steps:
+                    st.write(f"• {step}")
         st.markdown(reply)
         if chunks:
             render_sources(chunks)

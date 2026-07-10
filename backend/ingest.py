@@ -11,7 +11,11 @@ from __future__ import annotations
 
 import sys
 
+import logfire
+
 from backend import config
+
+logfire.configure(service_name="agentic-rag-ingestion", send_to_logfire="if-token-present")
 from backend.chunker import chunk_text
 from backend.embeddings import embed_documents
 from backend.loaders import load_file
@@ -36,6 +40,7 @@ def main() -> None:
 
     total_chunks = 0
     for path in files:
+      with logfire.span("process file", filename=path.name):
         source_type = "noisy" if path.parent.name == "noisy" else "true"
         text = load_file(path)
         if text is None:
@@ -47,8 +52,9 @@ def main() -> None:
 
         chunks = chunk_text(text)
         print(f"  [{source_type}] {path.name}: {len(text)} chars -> {len(chunks)} chunks, embedding...")
-        vectors = embed_documents(chunks)
-        add_chunks(chunks, vectors, source=path.name, source_type=source_type)
+        with logfire.span("embed + index", chunks=len(chunks)):
+            vectors = embed_documents(chunks)
+            add_chunks(chunks, vectors, source=path.name, source_type=source_type)
         total_chunks += len(chunks)
 
     print(f"\nDone. {total_chunks} chunks indexed; Qdrant now holds {count_chunks()}.")

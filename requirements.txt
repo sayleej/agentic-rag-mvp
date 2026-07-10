@@ -16,7 +16,11 @@ flashrank               # Local cross-encoder reranker (no API needed)
 # --- Document parsing ---
 pypdf                   # PDF text extraction
 python-docx             # Word document parsing
+python-pptx             # PowerPoint parsing
 beautifulsoup4          # HTML text extraction
+
+# --- Observability ---
+logfire[fastapi]                 # Pipeline tracing (spans/traces); no-op without LOGFIRE_TOKEN
 
 # --- Frontend ---
 streamlit               # Chat UI

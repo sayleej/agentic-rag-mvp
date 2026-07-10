@@ -1,6 +1,6 @@
 """Document loaders — turn files of different formats into plain text.
 
-Supported: .pdf, .docx, .html/.htm, .txt/.md
+Supported: .pdf, .docx, .pptx, .html/.htm, .txt/.md
 Each loader takes a file path and returns one big string of text.
 """
 
@@ -35,6 +35,19 @@ def load_html(path: Path) -> str:
     return soup.get_text(separator="\n\n", strip=True)
 
 
+def load_pptx(path: Path) -> str:
+    from pptx import Presentation
+
+    prs = Presentation(path)
+    slides = []
+    for slide in prs.slides:
+        texts = [shape.text for shape in slide.shapes
+                 if getattr(shape, "has_text_frame", False) and shape.text.strip()]
+        if texts:
+            slides.append("\n".join(texts))
+    return "\n\n".join(slides)
+
+
 def load_txt(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
@@ -43,6 +56,7 @@ def load_txt(path: Path) -> str:
 LOADERS = {
     ".pdf": load_pdf,
     ".docx": load_docx,
+    ".pptx": load_pptx,
     ".html": load_html,
     ".htm": load_html,
     ".txt": load_txt,

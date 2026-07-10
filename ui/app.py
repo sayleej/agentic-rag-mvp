@@ -110,6 +110,10 @@ if question:
             st.caption(f"🔎 Searched the library for: *{plan_info['search_query']}*")
         elif plan_info.get("intent") == "conversational":
             st.caption("💬 Conversational — no document search needed")
+        if data.get("steps"):
+            with st.expander("⚙️ Thought process"):
+                for step in data["steps"]:
+                    st.write(f"• {step}")
         st.markdown(data["answer"])
         if data["sources"]:
             with st.expander("📄 Sources"):

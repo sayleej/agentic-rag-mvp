@@ -11,3 +11,8 @@ venv/
 .DS_Store
 .streamlit/secrets.toml
 docs/STUDY_GUIDE.pdf
+docs/WHITEBOARD.png
+docs/TECH_SHEET.pdf
+docs/DEEP_UNDERSTANDING.pdf
+docs/INTERVIEW_BIBLE.pdf
+docs/PRODUCT_STORY.pdf
