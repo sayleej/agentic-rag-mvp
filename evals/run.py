@@ -3,7 +3,7 @@
 Run from the project root:
     .venv/bin/python -m evals.run
 
-Four metrics:
+Five metric groups:
   1. Retrieval hit rate  — did the expected document appear in the sources?
      (objective; no LLM involved)
   2. Answer quality      — LLM-as-judge compares the answer to the reference
@@ -14,6 +14,11 @@ Four metrics:
      block (abuse/injection/harmful) and pass what it should pass
      (off-topic, normal questions, greetings)? Tests the guardrail in
      isolation, not the full pipeline.
+  5. RAGAS-style metrics — faithfulness, answer relevancy, context
+     precision, and context recall, computed by our own judge (see
+     ragas_metrics.py) instead of the ragas package, which pulls in
+     torch/sentence-transformers. Same four standard RAG dimensions,
+     lighter dependency.
 
 Results are printed and saved to evals/results/<timestamp>.json so runs
 can be compared over time.
@@ -34,6 +39,7 @@ from backend.planner import plan
 from backend.reranker import rerank
 from backend.responder import answer
 from backend.vector_store import search
+from evals import ragas_metrics
 
 EVALS_DIR = Path(__file__).resolve().parent
 
@@ -57,7 +63,11 @@ def run_pipeline(question: str) -> dict:
     candidates = search(embed_query(query), limit=config.CANDIDATES)
     chunks = rerank(query, candidates)
     reply = answer(question, chunks, [])
-    return {"answer": reply, "sources": [c["source"] for c in chunks]}
+    return {
+        "answer": reply,
+        "sources": [c["source"] for c in chunks],
+        "contexts": [c["text"] for c in chunks],
+    }
 
 
 def judge(question: str, reference: str, model_answer: str) -> dict:
@@ -108,10 +118,21 @@ def main() -> None:
         result = run_pipeline(item["question"])
         verdict = judge(item["question"], item["reference_answer"], result["answer"])
 
+        ragas_scores = None
         if item["type"] == "answerable":
             hit = item["expected_source"] in result["sources"]
             passed = hit and verdict["score"] >= 4
             detail = f"retrieval={'HIT' if hit else 'MISS'} quality={verdict['score']}/5"
+            ragas_scores = ragas_metrics.score(
+                item["question"], result["contexts"], result["answer"], item["reference_answer"]
+            )
+            detail += (
+                f" | faithfulness={ragas_scores['faithfulness']} "
+                f"relevancy={ragas_scores['answer_relevancy']} "
+                f"ctx_precision={ragas_scores['context_precision']} "
+                f"ctx_recall={ragas_scores['context_recall']}"
+            )
+            time.sleep(8)  # second judge call — respect the same rate limit
         else:
             hit = None
             passed = verdict["refused"]
@@ -127,6 +148,7 @@ def main() -> None:
             "retrieval_hit": hit,
             "quality_score": verdict["score"],
             "refused": verdict["refused"],
+            "ragas": ragas_scores,
             "answer": result["answer"],
             "sources": result["sources"],
         })
@@ -142,12 +164,21 @@ def main() -> None:
     guardrail_accuracy = sum(1 for r in guard if r["passed"]) / len(guard) if guard else None
     pass_rate = sum(1 for r in results if r["passed"]) / len(results)
 
+    ragas_avg = None
+    ragas_items = [r["ragas"] for r in answerable if r["ragas"]]
+    if ragas_items:
+        ragas_avg = {
+            metric: round(sum(r[metric] for r in ragas_items) / len(ragas_items), 3)
+            for metric in ("faithfulness", "answer_relevancy", "context_precision", "context_recall")
+        }
+
     summary = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "retrieval_hit_rate": round(hit_rate, 3),
         "avg_answer_quality": round(avg_quality, 2),
         "refusal_accuracy": round(refusal_rate, 3),
         "guardrail_accuracy": round(guardrail_accuracy, 3) if guardrail_accuracy is not None else None,
+        "ragas_avg": ragas_avg,
         "overall_pass_rate": round(pass_rate, 3),
         "items": results,
     }
@@ -158,6 +189,13 @@ def main() -> None:
     print(f"Refusal accuracy:    {refusal_rate:.0%}  (honest refusals when out of scope)")
     if guardrail_accuracy is not None:
         print(f"Guardrail accuracy:  {guardrail_accuracy:.0%}  (correct block/pass decisions)")
+    if ragas_avg:
+        print(
+            f"RAGAS-style (avg):   faithfulness={ragas_avg['faithfulness']}  "
+            f"relevancy={ragas_avg['answer_relevancy']}  "
+            f"ctx_precision={ragas_avg['context_precision']}  "
+            f"ctx_recall={ragas_avg['context_recall']}"
+        )
     print(f"Overall pass rate:   {pass_rate:.0%}")
 
     out_dir = EVALS_DIR / "results"
