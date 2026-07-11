@@ -8,6 +8,8 @@ interface, so callers never know the difference.
 
 from __future__ import annotations
 
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+
 from backend.config import (
     GROQ_API_KEY,
     GROQ_MODEL,
@@ -40,6 +42,23 @@ def _init():
         _via = "groq"
 
 
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    return "429" in message or "rate_limit" in message or "rate limit" in message
+
+
+# Every caller — planner, guardrail, responder, eval judge, RAGAS metrics —
+# goes through this one function, so retry logic added here benefits all
+# of them at once. Exponential backoff (not a fixed wait like the Gemini
+# embedding retry) because Groq's TPM window is short-lived — a few
+# seconds of backoff is usually enough to let tokens free up, unlike
+# Gemini's 60-second embedding quota window.
+@retry(
+    retry=retry_if_exception(_is_rate_limit_error),
+    wait=wait_exponential(multiplier=1, min=2, max=20),
+    stop=stop_after_attempt(5),
+    reraise=True,
+)
 def chat(messages: list[dict], temperature: float = 0.1, json_mode: bool = False) -> str:
     """Send a chat completion and return the reply text."""
     _init()

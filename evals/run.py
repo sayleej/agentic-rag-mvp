@@ -132,7 +132,7 @@ def main() -> None:
                 f"ctx_precision={ragas_scores['context_precision']} "
                 f"ctx_recall={ragas_scores['context_recall']}"
             )
-            time.sleep(8)  # second judge call — respect the same rate limit
+            time.sleep(15)  # second, larger judge call — RAGAS sends full context
         else:
             hit = None
             passed = verdict["refused"]
