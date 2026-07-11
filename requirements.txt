@@ -28,6 +28,11 @@ tenacity                # Retry logic with proper wait strategies
 # --- Agent orchestration ---
 langgraph               # State machine: planner -> retriever? -> responder, with memory
 
+# --- Evals ---
+ragas                    # Industry-standard RAG eval metrics (faithfulness, relevancy, precision, recall)
+langchain-groq           # ragas' LLM-as-judge wrapper requires a LangChain client
+langchain-google-genai   # ragas' embedding-based metrics require a LangChain embeddings client
+
 # --- Frontend ---
 streamlit               # Chat UI
 requests                # Lets the UI call the backend over HTTP
