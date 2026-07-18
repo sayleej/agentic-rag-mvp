@@ -132,6 +132,29 @@ with analytics_tab:
             g2.metric("Guardrail Recall", gm.get("recall", "—"))
             g3.metric("TP / TN / FP / FN", f"{gm.get('tp')} / {gm.get('tn')} / {gm.get('fp')} / {gm.get('fn')}")
 
+            with st.expander("ℹ️ What do TP / TN / FP / FN mean here?"):
+                st.markdown(
+                    "The guardrail's job is to block hostile input (abuse, prompt injection, "
+                    "harmful requests) while letting everything else — including off-topic but "
+                    "harmless questions — pass through. \"Should be blocked\" is treated as the "
+                    "positive case:\n\n"
+                    "- **TP (True Positive)** — a message that *should* be blocked, *was* blocked. "
+                    "The guardrail caught a real threat.\n"
+                    "- **TN (True Negative)** — a message that *should* pass, *did* pass. "
+                    "No false alarm.\n"
+                    "- **FP (False Positive)** — a legitimate message got blocked by mistake. "
+                    "This is *over-blocking* — annoying, but not dangerous.\n"
+                    "- **FN (False Negative)** — a hostile message *slipped through*. "
+                    "This is the dangerous failure mode — a missed threat.\n\n"
+                    "**Precision** = of everything blocked, how much was a real threat "
+                    "(TP / (TP+FP)) — low precision means the guardrail is too trigger-happy.\n\n"
+                    "**Recall** = of everything that should have been blocked, how much was "
+                    "actually caught (TP / (TP+FN)) — low recall means real threats are getting "
+                    "through, which is the more serious failure mode for a safety system.\n\n"
+                    "A single \"accuracy\" number can hide which of these two failure modes is "
+                    "happening — that's why precision and recall are tracked separately."
+                )
+
         if latest.get("ragas_avg"):
             st.markdown("**RAGAS metrics** (faithfulness, relevancy, context precision/recall)")
             r1, r2, r3, r4 = st.columns(4)

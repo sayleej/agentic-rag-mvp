@@ -128,6 +128,19 @@ with tab2:
         c2.metric("Precision", gm["precision"] if gm["precision"] is not None else "—")
         c3.metric("Recall", gm["recall"] if gm["recall"] is not None else "—")
         c4.metric("TP / TN / FP / FN", f"{gm['tp']} / {gm['tn']} / {gm['fp']} / {gm['fn']}")
+
+        with st.expander("ℹ️ What do TP / TN / FP / FN mean here?"):
+            st.markdown(
+                "\"Should be blocked\" is treated as the positive case:\n\n"
+                "- **TP** — a hostile message was correctly blocked (caught a real threat)\n"
+                "- **TN** — a legitimate message correctly passed through (no false alarm)\n"
+                "- **FP** — a legitimate message got blocked by mistake (over-blocking)\n"
+                "- **FN** — a hostile message slipped through (the dangerous failure mode)\n\n"
+                "**Precision** = TP / (TP+FP) — of what got blocked, how much was a real threat.\n"
+                "**Recall** = TP / (TP+FN) — of real threats, how many were actually caught. "
+                "Low recall is the more serious failure for a safety system."
+            )
+
         st.dataframe(pd.DataFrame(st.session_state.guard_results), use_container_width=True, hide_index=True)
 
     st.divider()
