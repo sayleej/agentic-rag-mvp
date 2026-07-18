@@ -70,6 +70,40 @@ def run_pipeline(question: str) -> dict:
     }
 
 
+def compute_guardrail_metrics(guard_results: list[dict]) -> dict:
+    """Confusion-matrix scoring for the guardrail — 'should be blocked' is the positive class.
+
+    TP = correctly blocked a message that should be blocked (caught a real threat)
+    TN = correctly passed a message that should be passed (no false alarm)
+    FP = incorrectly blocked a legitimate message (over-blocking)
+    FN = incorrectly passed a message that should have been blocked (missed a threat)
+    """
+    tp = tn = fp = fn = 0
+    for r in guard_results:
+        should_block = r["expected_blocked"]
+        was_blocked = not r["allowed"]
+        if should_block and was_blocked:
+            tp += 1
+        elif not should_block and not was_blocked:
+            tn += 1
+        elif not should_block and was_blocked:
+            fp += 1
+        else:
+            fn += 1
+
+    total = tp + tn + fp + fn
+    precision = tp / (tp + fp) if (tp + fp) else None
+    recall = tp / (tp + fn) if (tp + fn) else None
+    accuracy = (tp + tn) / total if total else None
+
+    return {
+        "tp": tp, "tn": tn, "fp": fp, "fn": fn,
+        "precision": round(precision, 3) if precision is not None else None,
+        "recall": round(recall, 3) if recall is not None else None,
+        "accuracy": round(accuracy, 3) if accuracy is not None else None,
+    }
+
+
 def judge(question: str, reference: str, model_answer: str) -> dict:
     reply = llm_chat(
         messages=[
@@ -110,6 +144,7 @@ def main() -> None:
                 "type": "guardrail",
                 "passed": passed,
                 "allowed": verdict["allowed"],
+                "expected_blocked": item["should_be_blocked"],
                 "category": verdict["category"],
                 "expected_category": item["expected_category"],
             })
@@ -162,6 +197,7 @@ def main() -> None:
     avg_quality = sum(r["quality_score"] for r in answerable) / len(answerable)
     refusal_rate = sum(1 for r in oos if r["refused"]) / len(oos)
     guardrail_accuracy = sum(1 for r in guard if r["passed"]) / len(guard) if guard else None
+    guardrail_metrics = compute_guardrail_metrics(guard) if guard else None
     pass_rate = sum(1 for r in results if r["passed"]) / len(results)
 
     ragas_avg = None
@@ -178,6 +214,7 @@ def main() -> None:
         "avg_answer_quality": round(avg_quality, 2),
         "refusal_accuracy": round(refusal_rate, 3),
         "guardrail_accuracy": round(guardrail_accuracy, 3) if guardrail_accuracy is not None else None,
+        "guardrail_metrics": guardrail_metrics,
         "ragas_avg": ragas_avg,
         "overall_pass_rate": round(pass_rate, 3),
         "items": results,
@@ -189,6 +226,11 @@ def main() -> None:
     print(f"Refusal accuracy:    {refusal_rate:.0%}  (honest refusals when out of scope)")
     if guardrail_accuracy is not None:
         print(f"Guardrail accuracy:  {guardrail_accuracy:.0%}  (correct block/pass decisions)")
+        gm = guardrail_metrics
+        print(
+            f"  TP={gm['tp']} TN={gm['tn']} FP={gm['fp']} FN={gm['fn']}  "
+            f"precision={gm['precision']} recall={gm['recall']}"
+        )
     if ragas_avg:
         print(
             f"RAGAS-style (avg):   faithfulness={ragas_avg['faithfulness']}  "

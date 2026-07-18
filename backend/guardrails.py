@@ -9,13 +9,45 @@ Fails open: if the guard call errors, the message is allowed through —
 the responder's grounding rules remain as the second line of defense.
 Availability over strictness for a demo product; a bank would choose
 the opposite.
+
+Caps input length before it reaches any LLM call — an unbounded paste
+would cost tokens proportional to its length and could be used to run
+up cost deliberately.
+
+Also pattern-matches a short list of unmistakable injection phrases before
+the LLM call — these are worded so specifically ("ignore your previous
+instructions", "you are now DAN") that a keyword match is as reliable as
+an LLM verdict here, so there's no reason to spend a token confirming it.
+Deliberately narrow: only catches blatant, unambiguous phrasing, so it
+can't misfire on a legitimate question. Everything else still goes to
+the LLM classifier, which is what handles nuance, wording variation, and
+categories like abuse/harmful that don't reduce to fixed phrases.
 """
 
 from __future__ import annotations
 
 import json
+import re
 
 from backend.llm import chat
+
+MAX_INPUT_CHARS = 2000
+
+TOO_LONG_MESSAGE = (
+    "That message is too long for me to process. I answer questions about "
+    "the document library — try asking something more concise about "
+    "Kubernetes jobs, cron jobs, monitoring, work queues, or pod autoscaling."
+)
+
+INJECTION_PATTERNS = [
+    re.compile(p, re.IGNORECASE)
+    for p in [
+        r"ignore (all )?(your |the )?(previous |prior |above )?instructions",
+        r"you are now (DAN|dan)\b",
+        r"(repeat|reveal|print|show) (your |the )?system prompt",
+        r"disregard (your |the )?(previous |prior )?(rules|instructions)",
+    ]
+]
 
 GUARD_PROMPT = """You are a safety screen for a public document Q&A assistant.
 
@@ -41,6 +73,10 @@ BLOCKED_MESSAGE = (
 
 def check(question: str) -> dict:
     """Return {"allowed": bool, "category": str} for the message."""
+    if len(question) > MAX_INPUT_CHARS:
+        return {"allowed": False, "category": "too_long"}
+    if any(p.search(question) for p in INJECTION_PATTERNS):
+        return {"allowed": False, "category": "injection"}
     try:
         reply = chat(
             messages=[

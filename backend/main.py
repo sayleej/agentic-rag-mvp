@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from backend import config
 from backend.graph import rag_agent
-from backend.guardrails import BLOCKED_MESSAGE, check
+from backend.guardrails import BLOCKED_MESSAGE, TOO_LONG_MESSAGE, check
 from backend.vector_store import count_chunks
 
 # Sends traces to the Logfire dashboard only when LOGFIRE_TOKEN is set;
@@ -74,8 +74,9 @@ def query(request: QueryRequest):
     with logfire.span("guardrails"):
         verdict = check(request.question)
     if not verdict["allowed"]:
+        message = TOO_LONG_MESSAGE if verdict["category"] == "too_long" else BLOCKED_MESSAGE
         return {
-            "answer": BLOCKED_MESSAGE,
+            "answer": message,
             "sources": [],
             "plan": {"intent": f"blocked ({verdict['category']})", "search_query": None},
             "steps": [f"Guardrails: blocked ({verdict['category']}) — pipeline stopped"],

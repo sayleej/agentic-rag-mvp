@@ -22,7 +22,7 @@ for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
 
 from backend import config
 from backend.graph import rag_agent
-from backend.guardrails import BLOCKED_MESSAGE, check
+from backend.guardrails import BLOCKED_MESSAGE, TOO_LONG_MESSAGE, check
 from backend.vector_store import count_chunks
 
 st.set_page_config(page_title="Docs Assistant", page_icon="📚")
@@ -111,7 +111,7 @@ if question:
                 if not verdict["allowed"]:
                     decision = {"intent": "blocked", "search_query": None}
                     chunks = []
-                    reply = BLOCKED_MESSAGE
+                    reply = TOO_LONG_MESSAGE if verdict["category"] == "too_long" else BLOCKED_MESSAGE
                     steps = [f"Guardrails: blocked ({verdict['category']}) — pipeline stopped"]
                 else:
                     initial_state = {
