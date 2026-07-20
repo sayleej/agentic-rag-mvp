@@ -230,13 +230,13 @@ with chat_tab:
                             graph_config = {"configurable": {"thread_id": st.session_state.thread_id}}
                             with logfire.span("agent graph"):
                                 final_state = rag_agent.invoke(initial_state, config=graph_config)
-                        decision = {
-                            "intent": final_state["intent"],
-                            "search_query": final_state["search_query"] or None,
-                        }
-                        chunks = final_state.get("chunks", [])
-                        reply = final_state["answer"]
-                        steps = final_state["steps"]
+                            decision = {
+                                "intent": final_state["intent"],
+                                "search_query": final_state["search_query"] or None,
+                            }
+                            chunks = final_state.get("chunks", [])
+                            reply = final_state["answer"]
+                            steps = final_state["steps"]
                 except Exception as e:
                     st.error(f"Something went wrong: {e}")
                     st.stop()
