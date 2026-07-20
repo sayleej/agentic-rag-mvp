@@ -31,6 +31,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import logfire
+from opentelemetry import trace as otel_trace
+
 from backend import config
 from backend.embeddings import embed_query
 from backend.guardrails import check as check_guardrail
@@ -41,7 +44,18 @@ from backend.responder import answer
 from backend.vector_store import search
 from evals import ragas_metrics
 
+logfire.configure(service_name="agentic-rag-evals", send_to_logfire="if-token-present")
+
 EVALS_DIR = Path(__file__).resolve().parent
+
+
+def _current_trace_id() -> str | None:
+    """32-char hex trace ID of the currently open span, or None if no span is active."""
+    span = otel_trace.get_current_span()
+    ctx = span.get_span_context()
+    if not ctx.is_valid:
+        return None
+    return format(ctx.trace_id, "032x")
 
 JUDGE_PROMPT = """You are grading a document Q&A assistant against an answer key.
 
@@ -129,65 +143,70 @@ def main() -> None:
 
     print(f"Running {len(golden)} eval items...\n")
     for item in golden:
-        if item["type"] == "guardrail":
-            verdict = check_guardrail(item["question"])
-            passed = verdict["allowed"] != item["should_be_blocked"]
-            detail = (
-                f"blocked={'YES' if not verdict['allowed'] else 'NO'} "
-                f"category={verdict['category']} "
-                f"(expected blocked={item['should_be_blocked']})"
-            )
+        with logfire.span("eval item", item_id=item["id"], item_type=item["type"]):
+            trace_id = _current_trace_id()
+
+            if item["type"] == "guardrail":
+                verdict = check_guardrail(item["question"])
+                passed = verdict["allowed"] != item["should_be_blocked"]
+                detail = (
+                    f"blocked={'YES' if not verdict['allowed'] else 'NO'} "
+                    f"category={verdict['category']} "
+                    f"(expected blocked={item['should_be_blocked']})"
+                )
+                status = "PASS" if passed else "FAIL"
+                print(f"  [{status}] {item['id']}: {detail}")
+                results.append({
+                    "id": item["id"],
+                    "type": "guardrail",
+                    "passed": passed,
+                    "allowed": verdict["allowed"],
+                    "expected_blocked": item["should_be_blocked"],
+                    "category": verdict["category"],
+                    "expected_category": item["expected_category"],
+                    "trace_id": trace_id,
+                })
+                continue
+
+            result = run_pipeline(item["question"])
+            verdict = judge(item["question"], item["reference_answer"], result["answer"])
+
+            ragas_scores = None
+            if item["type"] == "answerable":
+                hit = item["expected_source"] in result["sources"]
+                passed = hit and verdict["score"] >= 4
+                detail = f"retrieval={'HIT' if hit else 'MISS'} quality={verdict['score']}/5"
+                ragas_scores = ragas_metrics.score(
+                    item["question"], result["contexts"], result["answer"], item["reference_answer"]
+                )
+                detail += (
+                    f" | faithfulness={ragas_scores['faithfulness']} "
+                    f"relevancy={ragas_scores['answer_relevancy']} "
+                    f"ctx_precision={ragas_scores['context_precision']} "
+                    f"ctx_recall={ragas_scores['context_recall']}"
+                )
+                time.sleep(15)  # second, larger judge call — RAGAS sends full context
+            else:
+                hit = None
+                passed = verdict["refused"]
+                detail = f"refused={'YES' if verdict['refused'] else 'NO (bluffed!)'}"
+
             status = "PASS" if passed else "FAIL"
             print(f"  [{status}] {item['id']}: {detail}")
+
             results.append({
                 "id": item["id"],
-                "type": "guardrail",
+                "type": item["type"],
                 "passed": passed,
-                "allowed": verdict["allowed"],
-                "expected_blocked": item["should_be_blocked"],
-                "category": verdict["category"],
-                "expected_category": item["expected_category"],
+                "retrieval_hit": hit,
+                "quality_score": verdict["score"],
+                "refused": verdict["refused"],
+                "ragas": ragas_scores,
+                "answer": result["answer"],
+                "sources": result["sources"],
+                "trace_id": trace_id,
             })
-            continue
-
-        result = run_pipeline(item["question"])
-        verdict = judge(item["question"], item["reference_answer"], result["answer"])
-
-        ragas_scores = None
-        if item["type"] == "answerable":
-            hit = item["expected_source"] in result["sources"]
-            passed = hit and verdict["score"] >= 4
-            detail = f"retrieval={'HIT' if hit else 'MISS'} quality={verdict['score']}/5"
-            ragas_scores = ragas_metrics.score(
-                item["question"], result["contexts"], result["answer"], item["reference_answer"]
-            )
-            detail += (
-                f" | faithfulness={ragas_scores['faithfulness']} "
-                f"relevancy={ragas_scores['answer_relevancy']} "
-                f"ctx_precision={ragas_scores['context_precision']} "
-                f"ctx_recall={ragas_scores['context_recall']}"
-            )
-            time.sleep(15)  # second, larger judge call — RAGAS sends full context
-        else:
-            hit = None
-            passed = verdict["refused"]
-            detail = f"refused={'YES' if verdict['refused'] else 'NO (bluffed!)'}"
-
-        status = "PASS" if passed else "FAIL"
-        print(f"  [{status}] {item['id']}: {detail}")
-
-        results.append({
-            "id": item["id"],
-            "type": item["type"],
-            "passed": passed,
-            "retrieval_hit": hit,
-            "quality_score": verdict["score"],
-            "refused": verdict["refused"],
-            "ragas": ragas_scores,
-            "answer": result["answer"],
-            "sources": result["sources"],
-        })
-        time.sleep(8)  # be gentle with Groq's free-tier tokens-per-minute limit
+            time.sleep(8)  # be gentle with Groq's free-tier tokens-per-minute limit
 
     answerable = [r for r in results if r["type"] == "answerable"]
     oos = [r for r in results if r["type"] == "out_of_scope"]

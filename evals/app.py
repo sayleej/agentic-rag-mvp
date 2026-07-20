@@ -18,10 +18,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import logfire
 import pandas as pd
 import streamlit as st
 
-from evals.run import EVALS_DIR, compute_guardrail_metrics, judge, run_pipeline
+from evals.run import EVALS_DIR, _current_trace_id, compute_guardrail_metrics, judge, run_pipeline
 from evals import ragas_metrics
 from backend.guardrails import check as check_guardrail
 
@@ -108,13 +109,16 @@ with tab2:
         progress = st.progress(0, text="Testing guardrail...")
         g_results = []
         for i, item in enumerate(guard_items):
-            verdict = check_guardrail(item["question"])
+            with logfire.span("eval item", item_id=item["id"], item_type="guardrail"):
+                trace_id = _current_trace_id()
+                verdict = check_guardrail(item["question"])
             g_results.append({
                 "id": item["id"],
                 "allowed": verdict["allowed"],
                 "expected_blocked": item["should_be_blocked"],
                 "category": verdict["category"],
                 "expected_category": item["expected_category"],
+                "trace_id": trace_id,
             })
             progress.progress(int((i + 1) / len(guard_items) * 100), text=f"[{i+1}/{len(guard_items)}] {item['id']}")
         st.session_state.guard_results = g_results
@@ -148,25 +152,28 @@ with tab2:
         results = []
         for i, item in enumerate(run_items):
             progress.progress(int(i / len(run_items) * 100), text=f"[{i+1}/{len(run_items)}] {item['id']}")
-            result = run_pipeline(item["question"])
-            verdict = judge(item["question"], item["reference_answer"], result["answer"])
+            with logfire.span("eval item", item_id=item["id"], item_type=item["type"]):
+                trace_id = _current_trace_id()
+                result = run_pipeline(item["question"])
+                verdict = judge(item["question"], item["reference_answer"], result["answer"])
 
-            ragas_scores = None
-            if item["type"] == "answerable":
-                hit = item["expected_source"] in result["sources"]
-                passed = hit and verdict["score"] >= 4
-                ragas_scores = ragas_metrics.score(
-                    item["question"], result["contexts"], result["answer"], item["reference_answer"]
-                )
-            else:
-                hit = None
-                passed = verdict["refused"]
+                ragas_scores = None
+                if item["type"] == "answerable":
+                    hit = item["expected_source"] in result["sources"]
+                    passed = hit and verdict["score"] >= 4
+                    ragas_scores = ragas_metrics.score(
+                        item["question"], result["contexts"], result["answer"], item["reference_answer"]
+                    )
+                else:
+                    hit = None
+                    passed = verdict["refused"]
 
             results.append({
                 "id": item["id"], "type": item["type"], "passed": passed,
                 "retrieval_hit": hit, "quality_score": verdict["score"],
                 "refused": verdict["refused"], "ragas": ragas_scores,
                 "answer": result["answer"], "sources": result["sources"],
+                "trace_id": trace_id,
             })
             rows.append({
                 "#": i + 1, "ID": item["id"], "Status": "✅" if passed else "❌",
@@ -209,8 +216,14 @@ with tab3:
             for col, (name, score) in zip(cols, ragas_avg.items()):
                 col.metric(f"{_badge(score)} {name.replace('_', ' ').title()}", f"{score:.2f}", _grade(score))
 
-        st.dataframe(pd.DataFrame(results)[["id", "type", "passed", "retrieval_hit", "quality_score"]],
+        st.dataframe(pd.DataFrame(results)[["id", "type", "passed", "retrieval_hit", "quality_score", "trace_id"]],
                      use_container_width=True, hide_index=True)
+        st.caption(
+            "Each row's `trace_id` links this score back to the exact production-style trace "
+            "that generated it. Copy a trace_id and search `trace_id = '<value>'` in Logfire's "
+            "search bar to see exactly what happened for that specific eval item — which step "
+            "was slow, what the retrieved chunks were, everything."
+        )
     else:
         st.info("Run the live pipeline in the previous tab to see results here.")
 
