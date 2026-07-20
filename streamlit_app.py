@@ -258,3 +258,17 @@ with chat_tab:
         st.session_state.messages.append(
             {"role": "assistant", "content": reply, "sources": chunks}
         )
+
+    # Auto-scroll to the latest message on every rerun, so the chat input
+    # (pinned at the bottom of the viewport) stays in view without the
+    # user having to manually scroll down after each answer.
+    st.markdown('<div id="chat-bottom-anchor"></div>', unsafe_allow_html=True)
+    st.components.v1.html(
+        """<script>
+        setTimeout(function() {
+            const anchor = window.parent.document.getElementById("chat-bottom-anchor");
+            if (anchor) { anchor.scrollIntoView({behavior: "instant", block: "end"}); }
+        }, 50);
+        </script>""",
+        height=0,
+    )
