@@ -19,9 +19,17 @@ import streamlit as st
 # On Streamlit Cloud, keys live in st.secrets (not a .env file).
 # Copy them into environment variables BEFORE importing backend modules,
 # because backend/config.py reads the environment at import time.
-for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
+for key in ("GEMINI_API_KEY", "GROQ_API_KEY", "QDRANT_URL", "QDRANT_API_KEY", "LOGFIRE_TOKEN"):
     if key in st.secrets:
         os.environ[key] = st.secrets[key]
+
+import logfire
+
+# Sends traces to the Logfire dashboard only when LOGFIRE_TOKEN is set;
+# otherwise spans are no-ops and nothing leaves the machine. This app runs
+# the pipeline in-process (no FastAPI server), so it needs its own
+# logfire.configure() call — backend/main.py's call doesn't cover this path.
+logfire.configure(service_name="agentic-rag-streamlit", send_to_logfire="if-token-present")
 
 from backend import config
 from backend.graph import rag_agent
