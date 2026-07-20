@@ -208,25 +208,28 @@ with chat_tab:
                         {"role": m["role"], "content": m["content"]}
                         for m in st.session_state.messages[:-1]
                     ]
-                    verdict = check(question)
-                    if not verdict["allowed"]:
-                        decision = {"intent": "blocked", "search_query": None}
-                        chunks = []
-                        reply = TOO_LONG_MESSAGE if verdict["category"] == "too_long" else BLOCKED_MESSAGE
-                        steps = [f"Guardrails: blocked ({verdict['category']}) — pipeline stopped"]
-                    else:
-                        initial_state = {
-                            "question": question,
-                            "history": history,
-                            "include_noisy": include_noisy,
-                            "intent": "",
-                            "search_query": "",
-                            "chunks": [],
-                            "answer": "",
-                            "steps": ["Guardrails: passed"],
-                        }
-                        graph_config = {"configurable": {"thread_id": st.session_state.thread_id}}
-                        final_state = rag_agent.invoke(initial_state, config=graph_config)
+                    with logfire.span("chat request", question=question):
+                        with logfire.span("guardrails"):
+                            verdict = check(question)
+                        if not verdict["allowed"]:
+                            decision = {"intent": "blocked", "search_query": None}
+                            chunks = []
+                            reply = TOO_LONG_MESSAGE if verdict["category"] == "too_long" else BLOCKED_MESSAGE
+                            steps = [f"Guardrails: blocked ({verdict['category']}) — pipeline stopped"]
+                        else:
+                            initial_state = {
+                                "question": question,
+                                "history": history,
+                                "include_noisy": include_noisy,
+                                "intent": "",
+                                "search_query": "",
+                                "chunks": [],
+                                "answer": "",
+                                "steps": ["Guardrails: passed"],
+                            }
+                            graph_config = {"configurable": {"thread_id": st.session_state.thread_id}}
+                            with logfire.span("agent graph"):
+                                final_state = rag_agent.invoke(initial_state, config=graph_config)
                         decision = {
                             "intent": final_state["intent"],
                             "search_query": final_state["search_query"] or None,
